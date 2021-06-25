@@ -6,12 +6,11 @@ if [[ ! -f "$( realpath . )/run_unittests.zsh" ]]; then
 fi
 
 tests=(
-    "neuron.py"
-    "layer"
+    neuron
 )
 
 foreach test in $tests
     fname=$( basename $test .py )
-    $( which python3 ) "src/${fname}.py" || exit 1
+    $( which python3 ) "src/_ut_${fname}.py" || exit 1
     echo
 end
