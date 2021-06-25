@@ -1,10 +1,12 @@
 #!/usr/bin/python3
 r'''
-# Neuron Class
-
----
-
-Responsible for being awesome
+* --- NEURON CLASS AND UNIT TESTS -----------------------------------------------------------------
+* -------------------------------------------------------------------------------------------------
+*
+*
+* Author: joebobs0n
+* Last Edited: 25 Jun 2021
+* -------------------------------------------------------------------------------------------------
 '''
 
 import numpy as np
@@ -22,22 +24,22 @@ class Neuron:
     #? --------------------------------------------------------------------------------------------
 
     def __init__(self, config=None, n_inputs=None, f_act=None, q=None, q_scalar=None, bias=None):
-        args = {key:val for key, val in locals().items() if key != 'self'}
+        args = {key:val for key, val in locals().items() if key != 'self' and key != 'config'}
         self.__defaults = helpers.loadDefaults('neuron')
         self.__fatals = []
-        cfg = args.pop('config')
-        if cfg is not None:
-            self.setConfig(cfg)
-        else:
-            self.__data = deepcopy(self.__defaults)
-        self.editConfig(**args)
-        self.__update()
+        self.__data = deepcopy(self.__defaults)
+
+        tempConfig = {}
+        for key, val in {key:val for key, val in args.items() if val != None}.items():
+            tempConfig[key] = val
+        if config is not None:
+            for key, val in {key:val for key, val in config.items() if val != None}.items():
+                tempConfig[key] = val
+        self.setConfig(tempConfig)
 
     def __str__(self):
         ret = deepcopy(self.__data)
-        for key, val in ret.items():
-            if callable(val):
-                ret[key] = f'{val.__name__}()'
+        ret['f_act'] = ret['f_act'].__name__[2:]
         return json.dumps(ret, indent=4)
 
     def __getitem__(self, key):
@@ -47,59 +49,67 @@ class Neuron:
     #? --- HIDDEN METHODS -------------------------------------------------------------------------
     #? --------------------------------------------------------------------------------------------
 
-    def __update(self):
+    def __patchConfig(self, config):
         for key in self.__defaults.keys():
-            if key not in self.__data.keys():
-                self.__data[key] = None
-        for key, val in self.__data.items():
-            if val is None:
-                self.__data[key] = self.__defaults[key]
-        if type(self.__data['f_act']) == str:
-            self.__data['f_act'] = self.__getActivationFunc()
-        if self.__data['q'] == []:
-            self.__data['q'] = self.__genRandQ()
-        else:
-            self.__data['q'] = self.__normalizeQ()
+            if key not in config.keys():
+                config[key] = None
+
+        prev_config = deepcopy(self.__data)
+        patched = deepcopy(self.__data)
+        for key, val in {key:val for key, val in config.items() if val != None}.items():
+            patched[key] = val
+
+        if config['n_inputs'] is not None and config['q'] is None:
+            patched['q'] = []
+        elif config['n_inputs'] is None and config['q'] is not None:
+            patched['n_inputs'] = -1
+        elif config['n_inputs'] is None and config['q'] is None and config['q_scalar'] is not None:
+            scalar_temp = patched['q_scalar'] / prev_config['q_scalar']
+            patched['q'] = [scalar_temp * q for q in patched['q']]
+        elif config['n_inputs'] is None and config['q'] is None and config['bias'] is not None:
+            bias_temp = patched['bias'] - prev_config['bias']
+            patched['q'] = [q + bias_temp for q in patched['q']]
+
+        if patched['q'] == []:
+            patched['q'] = self.__genRandQ(patched)
+        if patched['n_inputs'] == -1:
+            patched['n_inputs'] = len(patched['q'])
+
+        return patched
+
+    def __validateConfig(self, config):
+        if len(config['q']) != config['n_inputs']:
+            self.__fatals.append('{}-F-{} {}n_inputs{} and {}q length{} mismatch'.format(
+                helpers.Format['RED'], helpers.Format['END'],
+                helpers.Format['BOLD'], helpers.Format['END'],
+                helpers.Format['BOLD'], helpers.Format['END'],
+            ))
+        if not callable(config['f_act']):
+            self.__fatals.append('{}-F-{} {}{}{} is invalid selection for {}f_act{}'.format(
+                helpers.Format['RED'], helpers.Format['END'],
+                helpers.Format['BOLD'], config['f_act'], helpers.Format['END'],
+                helpers.Format['BOLD'], helpers.Format['END']
+            ))
         self.__qualify()
 
     def __qualify(self):
         if len(self.__fatals) > 0:
-            print('\n'.join(self.__fatals))
-            exit(1)
+            print('', *self.__fatals, sep='\n')
+            exit(len(self.__fatals))
 
-    def __getActivationFunc(self):
-        f_act = self.__data['f_act'].lower()
+    def __getActivationFunc(self, config):
+        f_act = config['f_act'].lower()
         if f_act in self.actFunctions.keys():
             return self.actFunctions[f_act]
-        self.__fatals.append('{}-F-{} {}{}{} is an invalid selection for {}f_act{}'.format(
-            helpers.Format['RED'], helpers.Format['END'],
-            helpers.Format['BOLD'], f_act, helpers.Format['END'],
-            helpers.Format['BOLD'], helpers.Format['END'],
-        ))
 
-    def __genRandQ(self):
-        n = self.__data['n_inputs']
-        if type(n) == int:
-            q = np.random.randn(1, n)[0]
-            q = self.__data['q_scalar'] * q
-            return list(q)
-        self.__fatals.append('{}-F-{} {}{}{} is an invalid value for {}n_inputs{}'.format(
-            helpers.Format['RED'], helpers.Format['END'],
-            helpers.Format['BOLD'], n, helpers.Format['END'],
-            helpers.Format['BOLD'], helpers.Format['END'],
-        ))
+    def __genRandQ(self, config):
+        n = config['n_inputs']
+        q = np.random.randn(1, n)[0]
+        q = config['q_scalar'] * q
+        return list(q)
 
-    def __normalizeQ(self) -> list:
-        types = list(set([type(q) for q in self.__data['q']]))
-        if len(types) > 1 or (types[0] != int and types[0] != np.float64):
-            self.__fatals.append('{}-F-{} {}q{} has invalid type(s); types found: {}'.format(
-                helpers.Format['RED'], helpers.Format['END'],
-                helpers.Format['BOLD'], helpers.Format['END'],
-                types
-            ))
-        if types[0] == int or types[0] == float:
-            return [np.float64(q) for q in self.__data['q']]
-        return self.__data['q']
+    def __normalizeQ(self, config):
+        return [np.float64(q) for q in config['q']]
 
 
     #? --- ACTIVATION FUNCTIONS -------------------------------------------------------------------
@@ -134,16 +144,16 @@ class Neuron:
 
     def editConfig(self, n_inputs=None, f_act=None, q=None, q_scalar=None, bias=None):
         args = {key:val for key, val in locals().items() if key != 'self'}
-        for key, val in args.items():
-            if key not in self.__data.keys():
-                self.__data[key] = None
-            if val is not None:
-                self.__data[key] = val
-        self.__update()
+        self.setConfig(args)
 
     def setConfig(self, config):
+        if len(config.keys()) < len(self.__defaults.keys()):
+            config = self.__patchConfig(config)
+        if not callable(config['f_act']):
+            config['f_act'] = self.__getActivationFunc(config)
+        config['q'] = self.__normalizeQ(config)
+        self.__validateConfig(config)
         self.__data = deepcopy(config)
-        self.__update()
 
     def forward(self, batch):
         if type(batch[0]) == float:
@@ -184,14 +194,18 @@ class TestNeuron(unittest.TestCase):
         ]
 
     def __configsEqual(self, config1, config2):
-        special_cases = ['f_act']
-        for cfg1, cfg2 in zip(config1.items(), config2.items()):
-            key, val1 = cfg1
-            _, val2 = cfg2
+        special_cases = ['f_act', 'q']
+        for tempConfig1, tempConfig2 in zip(config1.items(), config2.items()):
+            key, val1 = tempConfig1
+            _, val2 = tempConfig2
             if key not in special_cases:
                 self.assertEqual(val1, val2)
             elif key == 'f_act':
-                self.assertEqual(val1.lower(), val2.__name__[2:])
+                f1 = val1.lower() if type(val1) == str else val1.__name__[2:]
+                f2 = val2.lower() if type(val2) == str else val2.__name__[2:]
+                self.assertEqual(f1, f2)
+            elif key == 'q':
+                self.assertEqual(len(val1), len(val2))
 
     def test_01_defaults(self):
         special_cases = ['n_inputs', 'f_act', 'q']
@@ -226,40 +240,73 @@ class TestNeuron(unittest.TestCase):
         self.__configsEqual(config, self.__neuron.config)
 
     def test_05_sparce_config(self):
-        config = {
-            'n_inputs': 5,
-            'q': [np.float64(q) for q in [1, 2, 3, 4, 5]]
-        }
-        self.__neuron.setConfig(config)
-        for key, val in self.__defaults.items():
-            if key not in config.keys():
-                config[key] = val
-        self.__configsEqual(config, self.__neuron.config)
+        configs = [
+            {'n_inputs': 5},
+            {'f_act': 'tanh'},
+            {'q': [0.3, -1.2]},
+            {'q_scalar': -1},
+            {'bias': 1}
+        ]
+        for c in configs:
+            modified = deepcopy(self.__neuron)
+            self.__configsEqual(self.__neuron.config, modified.config)
+            modified.setConfig(c)
 
-    def test_06_identity_af(self):
-        self.__neuron.editConfig(f_act='identity', q=[1 for _ in range(self.__n)], bias=0)
+    def test_06_q_scalar(self):
+        modified = deepcopy(self.__neuron)
+        modified.editConfig(q_scalar=self.__neuron['q_scalar']/2)
+        self.assertEqual([q/2 for q in self.__neuron['q']], modified['q'])
+        modified = deepcopy(self.__neuron)
+        modified.editConfig(q_scalar=self.__neuron['q_scalar']*-1)
+        self.assertEqual([q*-1 for q in self.__neuron['q']], modified['q'])
+
+    def test_07_bias(self):
+        modified = deepcopy(self.__neuron)
+        modified.editConfig(bias=5-self.__neuron['bias'])
+        self.assertEqual([q+5 for q in self.__neuron['q']], modified['q'])
+        modified = deepcopy(self.__neuron)
+        modified.editConfig(bias=-2-self.__neuron['bias'])
+        self.assertEqual([q-2 for q in self.__neuron['q']], modified['q'])
+
+    def test_08_identity_af(self):
+        self.__neuron.setConfig({'f_act':'identity', 'q':[1 for _ in range(self.__n)], 'bias':0})
         self.__neuron.forward(self.__batch)
         self.assertEqual([-2.0, -1.0, 0.0, -1.0, 0.0, 1.0, 0.0, 1.0, 2.0], self.__neuron.output)
 
-    def test_07_step_af(self):
-        self.__neuron.editConfig(f_act='step', q=[1 for _ in range(self.__n)], bias=0)
+    def test_09_step_af(self):
+        self.__neuron.setConfig({'f_act':'step', 'q':[1 for _ in range(self.__n)], 'bias':0})
         self.__neuron.forward(self.__batch)
         self.assertEqual([0, 0, 0, 0, 0, 1, 0, 1, 1], self.__neuron.output)
 
-    def test_08_relu(self):
-        self.__neuron.editConfig(f_act='relu', q=[1 for _ in range(self.__n)], bias=0)
+    def test_10_relu(self):
+        self.__neuron.setConfig({'f_act':'relu', 'q':[1 for _ in range(self.__n)], 'bias':0})
         self.__neuron.forward(self.__batch)
         self.assertEqual([0, 0, 0, 0, 0, 1.0, 0, 1.0, 2.0], self.__neuron.output)
 
-    def test_09_sigmoid_af(self):
-        self.__neuron.editConfig(f_act='sigmoid', q=[1 for _ in range(self.__n)], bias=0)
+    def test_11_sigmoid_af(self):
+        self.__neuron.setConfig({'f_act':'sigmoid', 'q':[1 for _ in range(self.__n)], 'bias':0})
         self.__neuron.forward(self.__batch)
-        self.assertEqual([0.11920292202211755, 0.2689414213699951, 0.5, 0.2689414213699951, 0.5, 0.7310585786300049, 0.5, 0.7310585786300049, 0.8807970779778823], self.__neuron.output)
+        self.assertEqual([
+                0.11920292202211755, 0.2689414213699951, 0.5, 0.2689414213699951,
+                0.5, 0.7310585786300049, 0.5, 0.7310585786300049, 0.8807970779778823
+            ], self.__neuron.output
+        )
 
-    def test_10_tanh_af(self):
-        self.__neuron.editConfig(f_act='tanh', q=[1 for _ in range(self.__n)], bias=0)
+    def test_12_tanh_af(self):
+        self.__neuron.setConfig({'f_act':'tanh', 'q':[1 for _ in range(self.__n)], 'bias':0})
         self.__neuron.forward(self.__batch)
-        self.assertEqual([-0.964027580075817, -0.7615941559557649, 0.0, -0.7615941559557649, 0.0, 0.7615941559557649, 0.0, 0.7615941559557649, 0.964027580075817], self.__neuron.output)
+        self.assertEqual([-0.964027580075817, -0.7615941559557649, 0.0, -0.7615941559557649,
+                0.0, 0.7615941559557649, 0.0, 0.7615941559557649, 0.964027580075817
+            ], self.__neuron.output
+        )
+
+    def test_13_q_and_n_err(self):
+        with self.assertRaises(SystemExit):
+            self.__neuron.editConfig(n_inputs=3, q=[1.1, 1.2])
+
+    def test_14_af_err(self):
+        with self.assertRaises(SystemExit):
+            self.__neuron.editConfig(f_act='foobar')
 
 
 if __name__ == '__main__':
@@ -269,4 +316,3 @@ if __name__ == '__main__':
     ))
     print('----------------------------------------------------------------------')
     unittest.main(verbosity=2)
-
