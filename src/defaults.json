@@ -1,0 +1,13 @@
+{
+    "neuron": {
+        "n_inputs": null,
+        "f_act": "reLU",
+        "q": [],
+        "q_scalar": 0.1,
+        "bias": 0,
+        "output": []
+    },
+    "layer": {
+        "n_neurons": null
+    }
+}
