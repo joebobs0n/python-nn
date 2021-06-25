@@ -7,6 +7,8 @@ fi
 
 tests=(
     neuron
+    layer
+    network
 )
 
 foreach test in $tests

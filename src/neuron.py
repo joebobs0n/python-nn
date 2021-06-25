@@ -1,11 +1,14 @@
 #!/usr/bin/python3
 r'''
-* --- NEURON CLASS --------------------------------------------------------------------------------
+* --- NEURON CLASS (NEURAL NETWORK BOTTOM LEVEL) --------------------------------------------------
 * -------------------------------------------------------------------------------------------------
-*
+* The class describing a single neuron within a neural network.
+* The network would likely run faster if it weren't abstracted out like this since this way, due to
+*     the individual neuron calculation rather than doing matrix multiplication at the layer level.
+* Perhaps some timing analasys will be done in the future and revisions made. Perhaps...
 *
 * Author: joebobs0n
-* Last Edited: 26 Jun 2021
+* Last Edited: 25 Jun 2021
 * -------------------------------------------------------------------------------------------------
 '''
 
@@ -22,7 +25,7 @@ class Neuron:
     #? --- HOOK METHODS ---------------------------------------------------------------------------
     #? --------------------------------------------------------------------------------------------
 
-    def __init__(self, config=None, n_inputs=None, f_act=None, q=None, q_scalar=None, bias=None):
+    def __init__(self, config=None, n_inputs=None, act_f=None, q=None, q_scalar=None, bias=None):
         args = {key:val for key, val in locals().items() if key != 'self' and key != 'config'}
         self.__defaults = helpers.loadDefaults('neuron')
         self.__fatals = []
@@ -38,7 +41,7 @@ class Neuron:
 
     def __str__(self):
         ret = deepcopy(self.__data)
-        ret['f_act'] = ret['f_act'].__name__[2:]
+        ret['act_f'] = ret['act_f'].__name__[2:]
         return json.dumps(ret, indent=4)
 
     def __getitem__(self, key):
@@ -49,14 +52,15 @@ class Neuron:
     #? --------------------------------------------------------------------------------------------
 
     def __patchConfig(self, config):
+        prev_config = deepcopy(self.__data)
+        patched = deepcopy(self.__data)
+
+        for key, val in {key:val for key, val in config.items()}.items():
+            patched[key] = val
+
         for key in self.__defaults.keys():
             if key not in config.keys():
                 config[key] = None
-
-        prev_config = deepcopy(self.__data)
-        patched = deepcopy(self.__data)
-        for key, val in {key:val for key, val in config.items() if val != None}.items():
-            patched[key] = val
 
         if config['n_inputs'] is not None and config['q'] is None:
             patched['q'] = []
@@ -65,9 +69,6 @@ class Neuron:
         elif config['n_inputs'] is None and config['q'] is None and config['q_scalar'] is not None:
             scalar_temp = patched['q_scalar'] / prev_config['q_scalar']
             patched['q'] = [scalar_temp * q for q in patched['q']]
-        elif config['n_inputs'] is None and config['q'] is None and config['bias'] is not None:
-            bias_temp = patched['bias'] - prev_config['bias']
-            patched['q'] = [q + bias_temp for q in patched['q']]
 
         if patched['q'] == []:
             patched['q'] = self.__genRandQ(patched)
@@ -83,10 +84,10 @@ class Neuron:
                 helpers.Format['BOLD'], helpers.Format['END'],
                 helpers.Format['BOLD'], helpers.Format['END'],
             ))
-        if not callable(config['f_act']):
-            self.__fatals.append('{}-F-{} {}{}{} is invalid selection for {}f_act{}'.format(
+        if not callable(config['act_f']):
+            self.__fatals.append('{}-F-{} {}{}{} is invalid selection for {}act_f{}'.format(
                 helpers.Format['RED'], helpers.Format['END'],
-                helpers.Format['BOLD'], config['f_act'], helpers.Format['END'],
+                helpers.Format['BOLD'], config['act_f'], helpers.Format['END'],
                 helpers.Format['BOLD'], helpers.Format['END']
             ))
         self.__qualify()
@@ -97,9 +98,9 @@ class Neuron:
             exit(len(self.__fatals))
 
     def __getActivationFunc(self, config):
-        f_act = config['f_act'].lower()
-        if f_act in self.actFunctions.keys():
-            return self.actFunctions[f_act]
+        act_f = config['act_f'].lower()
+        if act_f in self.actFunctions.keys():
+            return self.actFunctions[act_f]
 
     def __genRandQ(self, config):
         n = config['n_inputs']
@@ -141,15 +142,15 @@ class Neuron:
     #? --- PUBLIC METHODS -------------------------------------------------------------------------
     #? --------------------------------------------------------------------------------------------
 
-    def editConfig(self, n_inputs=None, f_act=None, q=None, q_scalar=None, bias=None):
-        args = {key:val for key, val in locals().items() if key != 'self'}
+    def editConfig(self, n_inputs=None, act_f=None, q=None, q_scalar=None, bias=None):
+        args = {key:val for key, val in locals().items() if key != 'self' and val != None}
         self.setConfig(args)
 
     def setConfig(self, config):
         if len(config.keys()) < len(self.__defaults.keys()):
             config = self.__patchConfig(config)
-        if not callable(config['f_act']):
-            config['f_act'] = self.__getActivationFunc(config)
+        if not callable(config['act_f']):
+            config['act_f'] = self.__getActivationFunc(config)
         config['q'] = self.__normalizeQ(config)
         self.__validateConfig(config)
         self.__data = deepcopy(config)
@@ -158,7 +159,7 @@ class Neuron:
         if type(batch[0]) == float:
             batch = [batch]
         calc = [float(np.dot(self.__data['q'], sample) + self.__data['bias']) for sample in batch]
-        self.__data['f_act'](self, calc)
+        self.__data['act_f'](self, calc)
         return self.output
 
 

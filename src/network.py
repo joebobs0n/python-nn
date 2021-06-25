@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 r'''
-* --- LAYER CLASS (NEURAL NETWORK INTERMEDIATE LEVEL) ---------------------------------------------
+* --- NETWORK CLASS (NEURAL NETWORK TOP LEVEL) ----------------------------------------------------
 * -------------------------------------------------------------------------------------------------
 *
 *
@@ -14,24 +14,18 @@ import numpy as np
 import json
 try:
     import src.helpers as helpers
-    from src.neuron import Neuron
+    from src.layer import Layer
 except ModuleNotFoundError:
     import helpers
-    from neuron import Neuron
+    from layer import Layer
 
 
 class Layer:
     #? --- HOOK METHODS ---------------------------------------------------------------------------
     #? --------------------------------------------------------------------------------------------
 
-    def __init__(self, config=None, n_neurons=None):
-        self.__defaults = helpers.loadDefaults('layer')
-        args = {key:val for key, val in locals().items() if key != 'self'}
-        cfg = args.pop('config')
-        if cfg is not None:
-            self.__data = cfg
-        else:
-            self.__data = self.__defaults
+    def __init__(self):
+        pass
 
 
     #? --- HIDDEN METHODS -------------------------------------------------------------------------

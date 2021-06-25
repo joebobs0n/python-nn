@@ -1,7 +1,7 @@
 {
     "neuron": {
         "n_inputs": null,
-        "f_act": "reLU",
+        "act_f": "reLU",
         "q": [],
         "q_scalar": 0.1,
         "bias": 0,
