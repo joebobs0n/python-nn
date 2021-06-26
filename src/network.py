@@ -20,12 +20,15 @@ except ModuleNotFoundError:
     from layer import Layer
 
 
-class Layer:
+class Network:
     #? --- HOOK METHODS ---------------------------------------------------------------------------
     #? --------------------------------------------------------------------------------------------
 
-    def __init__(self):
-        pass
+    def __init__(self, sizes):
+        args = {key:val for key, val in locals().items() if key != 'self'}
+        self.__fatals = []
+        self.__data = {}
+
 
 
     #? --- HIDDEN METHODS -------------------------------------------------------------------------
@@ -34,6 +37,15 @@ class Layer:
 
     #? --- PUBLIC METHODS -------------------------------------------------------------------------
     #? --------------------------------------------------------------------------------------------
+
+    def editConfig(self):
+        pass
+
+    def setConfig(self, config):
+        pass
+
+    def forward(self):
+        pass
 
 
     #? --- PROPERTIES -----------------------------------------------------------------------------

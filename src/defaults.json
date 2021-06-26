@@ -6,8 +6,5 @@
         "q_scalar": 0.1,
         "bias": 0,
         "output": []
-    },
-    "layer": {
-        "n_neurons": null
     }
 }
